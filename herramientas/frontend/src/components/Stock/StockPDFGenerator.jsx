@@ -8,20 +8,22 @@ const StockPDFGenerator = ({ tipos = [], tipoIndividual = null, onClose }) => {
   const [herramientas, setHerramientas] = useState([]);
   const [pedidos, setPedidos] = useState([]);
   const [filtradasPorTipo, setFiltradasPorTipo] = useState({});
+  const [cargando, setCargando] = useState(true); // Para manejar la carga de datos
 
   // Traer datos herramientas y pedidos
   useEffect(() => {
     const fetchData = async () => {
-      try { // Añadido try-catch para manejar errores de carga de datos
+      try {
         const [herrRes, pedRes] = await Promise.all([
           stockService.getHerramientas(),
           axios.get("http://localhost:4000/pedidos"),
         ]);
         setHerramientas(herrRes || []);
         setPedidos(pedRes.data || []);
+        setCargando(false); // Marca como no cargando cuando los datos están listos
       } catch (error) {
         console.error("Error al cargar datos para PDF:", error);
-        // Podrías añadir lógica para mostrar un mensaje de error al usuario
+        setCargando(false);
       }
     };
     fetchData();
@@ -29,53 +31,52 @@ const StockPDFGenerator = ({ tipos = [], tipoIndividual = null, onClose }) => {
 
   // Filtrar herramientas por tipo y asignar persona
   useEffect(() => {
-    if (!herramientas.length || !pedidos.length) return;
+    if (!herramientas.length) return;
 
-    const asignadas = {};
-    pedidos.forEach((p) => {
-      p.DetallePedidos.forEach((d) => {
-        if ([5, 6].includes(d.nroEstado)) {
-          asignadas[d.nroHerramienta] = p.persona;
-        }
+    const asignadas = {}; // Objeto para asignar persona a herramienta
+
+    if (pedidos.length) {
+      pedidos.forEach((p) => {
+        p.DetallePedidos.forEach((d) => {
+          if ([5, 6].includes(d.nroEstado)) {
+            asignadas[d.nroHerramienta] = p.persona;
+          }
+        });
       });
-    });
+    }
 
     const tiposFiltrar = tipoIndividual ? [tipoIndividual] : tipos;
     const resultado = {};
 
     tiposFiltrar.forEach((tipo) => {
       resultado[tipo] = herramientas
-        // Accede al nombre del tipo de herramienta usando la notación de corchetes
-        .filter((h) => h['TipoHerramientum.nombre'] === tipo)
+        .filter((h) => h['TipoHerramientum.nombre'] === tipo) // Filtrar por tipo
         .map((h) => ({
           ...h,
-          // El campo 'estado' aquí sigue siendo el calculado ('Asignada'/'Libre')
-          estado: asignadas[h.nroHerramienta] ? "Asignada" : "Libre",
-          persona: asignadas[h.nroHerramienta] || "",
-          // Si necesitas el nombre del estado de la DB, podrías añadirlo así:
-          // estadoDB: h['Estado.nombre']
+          estado: asignadas[h.nroHerramienta] ? "Asignada" : "Libre", // Asignado si tiene persona, Libre si no
+          persona: asignadas[h.nroHerramienta] || "-", // Persona asignada o "-" si no está asignada
         }));
     });
 
     setFiltradasPorTipo(resultado);
   }, [herramientas, pedidos, tipos, tipoIndividual]);
 
-  // Cuando ya esté todo filtrado, generar PDF
+  // Generar PDF cuando los datos estén listos
   useEffect(() => {
+    if (cargando) return; // Si está cargando, no hacer nada
+
     const tiposAImprimir = tipoIndividual ? [tipoIndividual] : tipos;
-    // Asegúrate de que todos los tipos a imprimir tienen datos filtrados
+
     if (
       Object.keys(filtradasPorTipo).length === tiposAImprimir.length &&
-      tiposAImprimir.every((t) => filtradasPorTipo[t] !== undefined) // Verifica que el tipo exista en el objeto filtradasPorTipo
+      tiposAImprimir.every((t) => filtradasPorTipo[t] !== undefined)
     ) {
       generarPDF();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtradasPorTipo]); // Dependencia actualizada para asegurar que se ejecuta cuando filtradasPorTipo está completo
+  }, [filtradasPorTipo, cargando]); // Asegúrate de que el PDF solo se genere cuando todo esté listo
 
   const generarPDF = () => {
     const doc = new jsPDF();
-
     const tiposAImprimir = tipoIndividual ? [tipoIndividual] : tipos;
 
     tiposAImprimir.forEach((tipo, index) => {
@@ -85,18 +86,14 @@ const StockPDFGenerator = ({ tipos = [], tipoIndividual = null, onClose }) => {
       doc.text(`Listado Tipo: ${tipo}`, 14, 20);
 
       const body = (filtradasPorTipo[tipo] || []).map((h) => [
-        h.nroHerramienta,
-        h.nombre,
-        // Usa el estado calculado ('Asignada'/'Libre') o el de la DB si lo mapeaste (ej. h.estadoDB)
-        h.estado, // Esto usa el estado calculado en el useEffect anterior
-        h.persona || "-",
-        // Accede al nombre del estado de la base de datos si lo quieres en el PDF
-        h['Estado.nombre'], // Este es el nombre del estado directamente de la DB
-        h.createdAt ? new Date(h.createdAt).toLocaleDateString() : "-",
+        h.nroHerramienta,  // Número de la herramienta
+        h.nombre,           // Nombre de la herramienta
+        h.estado,           // Estado calculado (Asignada o Libre)
+        h.persona,          // Persona asignada o "-"
       ]);
 
       autoTable(doc, {
-        head: [["#", "Nombre", "Estado Asignado", "Persona", "Estado DB", "Creado"]], // Encabezado ajustado
+        head: [["#", "Nombre", "Estado", "Persona"]],
         body,
         startY: 30,
         styles: { fontSize: 10 },
@@ -110,10 +107,13 @@ const StockPDFGenerator = ({ tipos = [], tipoIndividual = null, onClose }) => {
         : "Listado_Completo_Herramientas.pdf"
     );
 
-    if (onClose) onClose();
+    if (onClose) onClose(); // Cierra el componente después de generar el PDF
   };
 
-  return <div>Generando PDF, por favor espere...</div>;
+  // Mientras cargamos los datos, mostrar el mensaje de espera
+  if (cargando) return <div>Generando PDF, por favor espere...</div>;
+
+  return null; // No renderiza nada después de generar el PDF
 };
 
 export default StockPDFGenerator;

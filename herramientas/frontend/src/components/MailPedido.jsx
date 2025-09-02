@@ -34,27 +34,40 @@ const MailPedidoWrapper = ({ nroPedido, show, onHide }) => {
   if (loading) return <p>Cargando pedido...</p>;
   if (!pedido) return <p>No se encontró el pedido.</p>;
 
-  // Asunto y resumen automático
-  const asunto = `Pedido de herramientas nro: #${pedido.nroPedido}`;
-  const resumen = `
-Pedido #: ${pedido.nroPedido}
-Fecha Inicio: ${new Date(pedido.fechaInicio).toLocaleDateString()}
-Fecha Plazo: ${new Date(pedido.fechaPlazo).toLocaleDateString()}
-Fecha Fin: ${pedido.fechaFin ? new Date(pedido.fechaFin).toLocaleDateString() : "Pendiente"}
-Ubicación: ${pedido.ubicacion}
-Estado: ${pedido.estado}
-Persona: ${pedido.persona}
-`;
-
   const handleEnviar = async () => {
     if (!responsableLegajo) return alert("Seleccione un responsable");
+
+    // Asunto formal
+    const asunto = `Notificación - Pedido de herramientas Nº ${pedido.nroPedido}`;
+
+    // Mensaje formal
+    const mensaje = `
+Estimado/a,
+
+Le informamos el estado actual del pedido de herramientas:
+
+- Nº de Pedido: ${pedido.nroPedido}
+- Fecha de Inicio: ${new Date(pedido.fechaInicio).toLocaleDateString()}
+- Fecha de Plazo: ${new Date(pedido.fechaPlazo).toLocaleDateString()}
+- Fecha de Finalización: ${
+      pedido.fechaFin ? new Date(pedido.fechaFin).toLocaleDateString() : "Pendiente"
+    }
+- Ubicación: ${pedido.ubicacion}
+- Estado: ${pedido.estado}
+- Solicitante: ${pedido.persona}
+
+Por favor, tenga en cuenta esta información y gestione las acciones correspondientes.
+
+Saludos cordiales,
+Sistema de Gestión de Herramientas
+    `.trim();
 
     try {
       await mailService.enviarMailPedido({
         nroPedido: pedido.nroPedido,
         responsableLegajo,
         asunto,
-        mensaje: resumen,
+        mensaje,
       });
       alert("Mail enviado correctamente");
       onHide();
@@ -67,7 +80,9 @@ Persona: ${pedido.persona}
   return (
     <Modal show={show} onHide={onHide} size="lg" centered>
       <Modal.Header closeButton>
-        <Modal.Title>Pedido #{pedido.nroPedido} - Resumen y Envío de Mail</Modal.Title>
+        <Modal.Title>
+          Pedido #{pedido.nroPedido} - Resumen y Envío de Mail
+        </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         {/* Resumen del pedido */}
@@ -88,7 +103,11 @@ Persona: ${pedido.persona}
             </tr>
             <tr>
               <td>Fecha Fin</td>
-              <td>{pedido.fechaFin ? new Date(pedido.fechaFin).toLocaleDateString() : "Pendiente"}</td>
+              <td>
+                {pedido.fechaFin
+                  ? new Date(pedido.fechaFin).toLocaleDateString()
+                  : "Pendiente"}
+              </td>
             </tr>
             <tr>
               <td>Ubicación</td>
@@ -121,15 +140,45 @@ Persona: ${pedido.persona}
           </Form.Select>
         </Form.Group>
 
-        {/* Asunto y mensaje (resumen automático) */}
+        {/* Vista previa del mail */}
         <Form.Group className="mb-3">
           <Form.Label>Asunto</Form.Label>
-          <Form.Control type="text" value={asunto} readOnly />
+          <Form.Control
+            type="text"
+            value={`Notificación - Pedido de herramientas Nº ${pedido.nroPedido}`}
+            readOnly
+          />
         </Form.Group>
 
         <Form.Group className="mb-3">
           <Form.Label>Mensaje</Form.Label>
-          <Form.Control as="textarea" rows={6} value={resumen} readOnly />
+          <Form.Control
+            as="textarea"
+            rows={8}
+            value={`
+Estimado/a,
+
+Le informamos el estado actual del pedido de herramientas:
+
+- Nº de Pedido: ${pedido.nroPedido}
+- Fecha de Inicio: ${new Date(pedido.fechaInicio).toLocaleDateString()}
+- Fecha de Plazo: ${new Date(pedido.fechaPlazo).toLocaleDateString()}
+- Fecha de Finalización: ${
+              pedido.fechaFin
+                ? new Date(pedido.fechaFin).toLocaleDateString()
+                : "Pendiente"
+            }
+- Ubicación: ${pedido.ubicacion}
+- Estado: ${pedido.estado}
+- Solicitante: ${pedido.persona}
+
+Por favor, tenga en cuenta esta información y gestione las acciones correspondientes.
+
+Saludos cordiales,
+Sistema de Gestión de Herramientas
+            `}
+            readOnly
+          />
         </Form.Group>
 
         <Button
@@ -145,4 +194,3 @@ Persona: ${pedido.persona}
 };
 
 export default MailPedidoWrapper;
-

@@ -22,7 +22,7 @@ const Stock = () => {
         setResumenStock(sortedData);
 
         const estadosSet = new Set();
-        sortedData.forEach((item) => { // Usar sortedData para obtener los estados
+        sortedData.forEach((item) => {
           Object.keys(item.resumen).forEach((key) => {
             if (key !== "total") estadosSet.add(key);
           });
@@ -100,12 +100,14 @@ const Stock = () => {
         </tbody>
       </Table>
 
+      {/* Botón "Imprimir Todo PDF" */}
       <div className="d-flex justify-content-end mt-3">
         <Button variant="dark" onClick={() => setImprimirTodo(true)}>
           <FaPrint className="me-2" /> Imprimir Todo PDF
         </Button>
       </div>
 
+      {/* Generar PDF para un solo tipo de herramienta */}
       {tipoParaImprimir && (
         <StockPDFGenerator
           tipoIndividual={tipoParaImprimir}
@@ -113,6 +115,7 @@ const Stock = () => {
         />
       )}
 
+      {/* Generar PDF para todos los tipos */}
       {imprimirTodo && (
         <StockPDFGenerator
           tipos={tiposHerramientas}
